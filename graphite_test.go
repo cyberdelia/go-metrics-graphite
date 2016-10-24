@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rcrowley/go-metrics"
+	"github.com/etsy/go-metrics"
 )
 
 func floatEquals(a, b float64) bool {
