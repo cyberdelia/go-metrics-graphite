@@ -111,6 +111,8 @@ func graphite(c *GraphiteConfig) error {
 			fmt.Fprintf(w, "%s.%s.five-minute %.2f %d\n", c.Prefix, name, t.Rate5(), now)
 			fmt.Fprintf(w, "%s.%s.fifteen-minute %.2f %d\n", c.Prefix, name, t.Rate15(), now)
 			fmt.Fprintf(w, "%s.%s.mean-rate %.2f %d\n", c.Prefix, name, t.RateMean(), now)
+		default:
+			log.Printf("unable to record metric of type %T\n", i)
 		}
 		w.Flush()
 	})
