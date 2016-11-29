@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/etsy/go-metrics"
+	"github.com/rcrowley/go-metrics"
 )
 
 // GraphiteConfig provides a container with configuration parameters for
