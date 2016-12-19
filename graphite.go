@@ -57,6 +57,7 @@ func Once(c Config) error {
 func graphite(c *Config) error {
 	now := time.Now().Unix()
 	du := float64(c.DurationUnit)
+	flushSeconds := float64(c.FlushInterval) / float64(time.Second)
 	conn, err := net.DialTCP("tcp", nil, c.Addr)
 	if nil != err {
 		return err
@@ -66,7 +67,9 @@ func graphite(c *Config) error {
 	c.Registry.Each(func(name string, i interface{}) {
 		switch metric := i.(type) {
 		case metrics.Counter:
-			fmt.Fprintf(w, "%s.%s.count %d %d\n", c.Prefix, name, metric.Count(), now)
+			count := metric.Count()
+			fmt.Fprintf(w, "%s.%s.count %d %d\n", c.Prefix, name, count, now)
+			fmt.Fprintf(w, "%s.%s.count_ps %.2f %d\n", c.Prefix, name, float64(count)/flushSeconds, now)
 		case metrics.Gauge:
 			fmt.Fprintf(w, "%s.%s.value %d %d\n", c.Prefix, name, metric.Value(), now)
 		case metrics.GaugeFloat64:
@@ -93,7 +96,9 @@ func graphite(c *Config) error {
 		case metrics.Timer:
 			t := metric.Snapshot()
 			ps := t.Percentiles(c.Percentiles)
-			fmt.Fprintf(w, "%s.%s.count %d %d\n", c.Prefix, name, t.Count(), now)
+			count := t.Count()
+			fmt.Fprintf(w, "%s.%s.count %d %d\n", c.Prefix, name, count, now)
+			fmt.Fprintf(w, "%s.%s.count_ps %.2f %d\n", c.Prefix, name, float64(count)/flushSeconds, now)
 			fmt.Fprintf(w, "%s.%s.min %d %d\n", c.Prefix, name, t.Min()/int64(du), now)
 			fmt.Fprintf(w, "%s.%s.max %d %d\n", c.Prefix, name, t.Max()/int64(du), now)
 			fmt.Fprintf(w, "%s.%s.mean %.2f %d\n", c.Prefix, name, t.Mean()/du, now)
@@ -106,6 +111,8 @@ func graphite(c *Config) error {
 			fmt.Fprintf(w, "%s.%s.five-minute %.2f %d\n", c.Prefix, name, t.Rate5(), now)
 			fmt.Fprintf(w, "%s.%s.fifteen-minute %.2f %d\n", c.Prefix, name, t.Rate15(), now)
 			fmt.Fprintf(w, "%s.%s.mean-rate %.2f %d\n", c.Prefix, name, t.RateMean(), now)
+		default:
+			log.Printf("unable to record metric of type %T\n", i)
 		}
 		w.Flush()
 	})
