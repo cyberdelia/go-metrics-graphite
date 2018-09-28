@@ -21,7 +21,7 @@ type Config struct {
 	DurationUnit  time.Duration    // Time conversion unit for durations
 	Prefix        string           // Prefix to be prepended to metric names
 	Percentiles   []float64        // Percentiles to export from timers and histograms
-	ClearOnFlush  bool             // Whether to clear on flush (Default is false)
+	ClearCountOnFlush  bool             // Whether to clear on flush (Default is false)
 }
 
 // Graphite is a blocking exporter function which reports metrics in r
@@ -39,7 +39,7 @@ func Graphite(r metrics.Registry, d time.Duration, prefix string, addr *net.TCPA
 		DurationUnit:  time.Nanosecond,
 		Prefix:        prefix,
 		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
-		ClearOnFlush:  c,
+		ClearCountOnFlush:  c,
 	})
 }
 
@@ -76,7 +76,7 @@ func graphite(c *Config) error {
 			count := metric.Count()
 			fmt.Fprintf(w, "%s.%s.count %d %d\n", c.Prefix, name, count, now)
 			fmt.Fprintf(w, "%s.%s.count_ps %.2f %d\n", c.Prefix, name, float64(count)/flushSeconds, now)
-			if c.ClearOnFlush {
+			if c.ClearCountOnFlush {
 				metric.Clear()
 			}
 		case metrics.Gauge:
