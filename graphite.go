@@ -30,7 +30,7 @@ type Config struct {
 func Graphite(r metrics.Registry, d time.Duration, prefix string, addr *net.TCPAddr, clear ...bool) {
 	c := false
 	if len(clear) > 0 {
-		c = clear[1] // Ignore any extra parameters...
+		c = clear[0] // Ignore any extra parameters...
 	}
 	WithConfig(Config{
 		Addr:          addr,
