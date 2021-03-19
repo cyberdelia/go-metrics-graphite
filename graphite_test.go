@@ -16,6 +16,15 @@ func floatEquals(a, b float64) bool {
 	return (a-b) < 0.000001 && (b-a) < 0.000001
 }
 
+func ExampleRunGraphite() {
+	addr, _ := net.ResolveTCPAddr("net", ":2003")
+	ticker, err := RunGraphite(nil, 1*time.Second, "some.prefix", addr)
+	if err != nil {
+		// ...
+	}
+	ticker.Stop()
+}
+
 func ExampleGraphite() {
 	addr, _ := net.ResolveTCPAddr("net", ":2003")
 	go Graphite(metrics.DefaultRegistry, 1*time.Second, "some.prefix", addr)
@@ -30,6 +39,19 @@ func ExampleWithConfig() {
 		DurationUnit:  time.Millisecond,
 		Percentiles:   []float64{0.5, 0.75, 0.99, 0.999},
 	})
+}
+
+func ExampleWithConfigAndTicker() {
+	addr, _ := net.ResolveTCPAddr("net", ":2003")
+	t := time.NewTicker(time.Second)
+	go WithConfig(Config{
+		Addr:         addr,
+		Registry:     metrics.DefaultRegistry,
+		DurationUnit: time.Millisecond,
+		Percentiles:  []float64{0.5, 0.75, 0.99, 0.999},
+		Ticker:       t,
+	})
+	t.Stop()
 }
 
 func NewTestServer(t *testing.T, prefix string) (map[string]float64, net.Listener, metrics.Registry, Config, *sync.WaitGroup) {
