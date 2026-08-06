@@ -21,30 +21,68 @@ type Config struct {
 	DurationUnit  time.Duration    // Time conversion unit for durations
 	Prefix        string           // Prefix to be prepended to metric names
 	Percentiles   []float64        // Percentiles to export from timers and histograms
+	Ticker        *time.Ticker     // optional ticker allowing stop
+}
+
+func DefaultPercentiles() []float64 {
+	return []float64{0.5, 0.75, 0.95, 0.99, 0.999}
+}
+
+func NewConfig(r metrics.Registry, d time.Duration, prefix string, addr *net.TCPAddr) Config {
+	return Config{
+		Addr:          addr,
+		Registry:      r,
+		FlushInterval: d,
+		DurationUnit:  time.Nanosecond,
+		Prefix:        prefix,
+		Percentiles:   DefaultPercentiles(),
+	}
+}
+
+// Run graphite in it's own goroutine.
+// The returned Ticker can be used to stop.
+func RunGraphite(r metrics.Registry, d time.Duration, prefix string, addr *net.TCPAddr) (t *time.Ticker, err error) {
+	c := NewConfig(r, d, prefix, addr)
+	t = newTicker(c.FlushInterval)
+	if t == nil {
+		err = fmt.Errorf("FlushInterval must be positive.  Is %d", c.FlushInterval)
+		return
+	}
+	c.Ticker = t
+	go WithConfig(c)
+	return
 }
 
 // Graphite is a blocking exporter function which reports metrics in r
 // to a graphite server located at addr, flushing them every d duration
 // and prepending metric names with prefix.
 func Graphite(r metrics.Registry, d time.Duration, prefix string, addr *net.TCPAddr) {
-	WithConfig(Config{
-		Addr:          addr,
-		Registry:      r,
-		FlushInterval: d,
-		DurationUnit:  time.Nanosecond,
-		Prefix:        prefix,
-		Percentiles:   []float64{0.5, 0.75, 0.95, 0.99, 0.999},
-	})
+	WithConfig(NewConfig(r, d, prefix, addr))
 }
 
 // WithConfig is a blocking exporter function just like Graphite,
 // but it takes a GraphiteConfig instead.
 func WithConfig(c Config) {
-	for _ = range time.Tick(c.FlushInterval) {
+	t := c.Ticker
+	if t == nil {
+		t = newTicker(c.FlushInterval)
+		if t == nil {
+			log.Println("no ticker provided and FlushInterval invalid")
+			return
+		}
+	}
+	for _ = range t.C {
 		if err := graphite(&c); nil != err {
 			log.Println(err)
 		}
 	}
+}
+
+func newTicker(d time.Duration) (t *time.Ticker) {
+	if d > 0 {
+		t = time.NewTicker(d)
+	}
+	return
 }
 
 // Once performs a single submission to Graphite, returning a
@@ -64,7 +102,11 @@ func graphite(c *Config) error {
 	}
 	defer conn.Close()
 	w := bufio.NewWriter(conn)
-	c.Registry.Each(func(name string, i interface{}) {
+	r := c.Registry
+	if nil == r {
+		r = metrics.DefaultRegistry
+	}
+	r.Each(func(name string, i interface{}) {
 		switch metric := i.(type) {
 		case metrics.Counter:
 			count := metric.Count()
